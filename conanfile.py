@@ -1,5 +1,6 @@
 import os
 import shutil
+import glob
 from conans import ConanFile, tools, AutoToolsBuildEnvironment
 
 class OmniorbConan(ConanFile):
@@ -21,13 +22,24 @@ class OmniorbConan(ConanFile):
         shutil.move("omniORB-{0}".format(self.version), "omniORB")
 
     def build(self):
+        source_location = os.path.join(self.build_folder, "omniORB")
         autotools = AutoToolsBuildEnvironment(self)
-        autotools.configure(configure_dir=os.path.join(self.build_folder, "omniORB"))
+        args = [
+            "--disable-static" if self.options.shared else "--enable-static",
+        ]
+        autotools.configure(configure_dir=source_location, args=args)
         autotools.make()
 
     def package(self):
         autotools = AutoToolsBuildEnvironment(self)
         autotools.install()
+        # Delete all shared-objects for static-mode, since we cannot prevent building them
+        if not self.options.shared:
+            for shared_object in glob.iglob(os.path.join(self.package_folder, "lib", "lib*.so*")):
+                os.remove(shared_object)
 
     def package_info(self):
-        self.cpp_info.libs = ['omniORB4','omnithread']
+        self.cpp_info.libs = ['omniORB4','omnithread', "omniDynamic4", "COS4"]
+        if not self.options.shared:
+            self.cpp_info.libs += ['pthread']
+

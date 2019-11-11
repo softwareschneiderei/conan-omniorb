@@ -1,5 +1,6 @@
-from conans import ConanFile, tools, AutoToolsBuildEnvironment
 import os
+import shutil
+from conans import ConanFile, tools, AutoToolsBuildEnvironment
 
 class OmniorbConan(ConanFile):
     name = "omniorb"
@@ -12,30 +13,21 @@ class OmniorbConan(ConanFile):
     default_options = "shared=False"
     generators = "cmake"
     root = "omniORB-" + version
-    install_dir = 'omniorb-install'
 
     def source(self):
-        archive_name = "omniORB-%s.tar.bz2" % self.version
-        source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-%s/%s" % ( self.version, archive_name )
+        archive_name = "omniORB-{0}.tar.bz2".format(self.version)
+        source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-%s/%s".format(self.version, archive_name)
         tools.get(source_url)
-
-    def build_configure(self):
-        prefix = os.path.abspath(self.install_dir)
-        with tools.chdir(self.root):
-            env_build = AutoToolsBuildEnvironment(self)
-            args = ['--prefix=%s' % prefix]
-            env_build.configure(args=args)
-            env_build.make()
-            env_build.make(args=['install'])
+        shutil.move("omniORB-{0}".format(self.version), "omniORB")
 
     def build(self):
-        self.build_configure()
+        autotools = AutoToolsBuildEnvironment(self)
+        autotools.configure(configure_dir=os.path.join(self.build_folder, "omniORB"))
+        autotools.make()
 
     def package(self):
-        inc_dir = os.path.join(self.install_dir, 'include')
-        lib_dir = os.path.join(self.install_dir, 'lib')
-        self.copy(pattern="*.h*", dst="include", src=inc_dir, keep_path=True)
-        self.copy(pattern="*.so*", dst="lib", src=lib_dir, keep_path=False)
+        autotools = AutoToolsBuildEnvironment(self)
+        autotools.install()
 
     def package_info(self):
         self.cpp_info.libs = ['omniORB4','omnithread']

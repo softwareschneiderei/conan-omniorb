@@ -16,7 +16,7 @@ class OmniorbConan(ConanFile):
 
     def source(self):
         archive_name = "omniORB-{0}.tar.bz2".format(self.version)
-        source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-%s/%s".format(self.version, archive_name)
+        source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-{0}/{1}".format(self.version, archive_name)
         tools.get(source_url)
         shutil.move("omniORB-{0}".format(self.version), "omniORB")
 

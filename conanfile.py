@@ -2,6 +2,21 @@ import os
 import shutil
 import glob
 from conans import ConanFile, tools, AutoToolsBuildEnvironment
+from conans.errors import ConanException, ConanInvalidConfiguration
+
+
+def prepend_file_with(file_path, line):
+    lines = []
+    with open(file_path) as file:
+        lines = file.readlines()
+
+    # Prepend, if we have not already
+    if len(lines) > 0 and lines[0] != line:
+        lines = [line] + lines
+
+    with open(file_path, "w") as file:
+        file.writelines(lines)
+
 
 class OmniorbConan(ConanFile):
     name = "omniorb"
@@ -12,7 +27,7 @@ class OmniorbConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False]}
     default_options = "shared=False"
-    generators = "cmake"
+    generators = ["cmake", "txt"]
     root = "omniORB-" + version
 
     def source(self):
@@ -21,14 +36,41 @@ class OmniorbConan(ConanFile):
         tools.get(source_url)
         shutil.move("omniORB-{0}".format(self.version), "omniORB")
 
-    def build(self):
-        source_location = os.path.join(self.build_folder, "omniORB")
+    def build_requirements(self):
+        if self.settings.os == "Windows":
+            self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
+
+    def build_windows(self):
+        if self.settings.compiler != "Visual Studio":
+            raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+
+        # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
+        omniorb_version = max(int(str(self.settings.compiler.version)), 15)
+        platform_name = "x86_win32_vs_{0}".format(omniorb_version)
+
+        config_file_path = os.path.join(self.build_folder, "config/config.mk")
+        prepend_file_with(config_file_path, "platform = {0}\n".format(platform_name))
+
+        # 2. set python in the platform path
+
+        raise ConanException("Cannot build on windows yet")
+
+    def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
         args = [
             "--disable-static" if self.options.shared else "--enable-static",
         ]
-        autotools.configure(configure_dir=source_location, args=args)
+        autotools.configure(configure_dir=self.build_folder, args=args)
         autotools.make()
+
+    def build(self):
+        source_location = os.path.join(self.source_folder, "omniORB")
+        self.output.info("source {0}, build {1}".format(source_location, self.build_folder))
+        shutil.copytree(source_location, self.build_folder, dirs_exist_ok=True)
+        if self.settings.os == "Windows":
+            self.build_windows()
+        elif self.settings.os == "Linux":
+            self.build_linux()
 
     def package(self):
         autotools = AutoToolsBuildEnvironment(self)

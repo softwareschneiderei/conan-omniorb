@@ -24,6 +24,10 @@ def convert_to_cygwin(path):
     return "/cygdrive/{0}/{1}".format(parts[0].lower(), parts[1].replace("\\", "/").lower())
 
 
+def library_suffix(build_type, shared):
+    return "_rt" if shared else "" + "d.lib" if build_type == "Debug" else ".lib"
+
+
 class OmniorbConan(ConanFile):
     name = "omniorb"
     version = "4.2.2"
@@ -85,8 +89,30 @@ class OmniorbConan(ConanFile):
             self.build_windows()
         elif self.settings.os == "Linux":
             self.build_linux()
+        else:
+            raise ConanInvalidConfiguration("Unsupported OS")
 
     def package(self):
+        if self.settings.os == "Windows":
+            self.package_windows()
+        elif self.settings.os == "Linux":
+            self.package_linux()
+        else:
+            raise ConanInvalidConfiguration("Unsupported OS")
+
+    def windows_libraries(self):
+        base_names = ['COS4', 'COSDynamic', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread']
+        suffix = library_suffix(self.settings.build_type, self.options.shared)
+        return (lib + suffix for lib in base_names)
+
+    def package_windows(self):
+        for lib in self.windows_libraries():
+            self.copy(lib, dst="lib", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=False)
+        self.copy("*.h", dst="include", src="include")
+        self.copy("*.hxx", dst="include", src="include")
+        self.copy("*.hh", dst="include", src="include")
+
+    def package_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
         autotools.install()
         # Delete all shared-objects for static-mode, since we cannot prevent building them
@@ -95,7 +121,17 @@ class OmniorbConan(ConanFile):
                 os.remove(shared_object)
 
     def package_info(self):
+        if self.settings.os == "Windows":
+            self.package_info_windows()
+        elif self.settings.os == "Linux":
+            self.package_info_linux()
+        else:
+            raise ConanInvalidConfiguration("Unsupported OS")
+
+    def package_info_linux(self):
         self.cpp_info.libs = ['omniDynamic4', 'COS4', 'omniORB4','omnithread',]
         if not self.options.shared:
             self.cpp_info.libs += ['pthread']
 
+    def package_info_windows(self):
+        self.cpp_info.libs = [x for x in self.windows_libraries()]

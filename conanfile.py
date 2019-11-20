@@ -18,6 +18,12 @@ def prepend_file_with(file_path, line):
         file.writelines(lines)
 
 
+def convert_to_cygwin(path):
+    # Split at drive-separator
+    parts = path.split(":\\", 1)
+    return "/cygdrive/{0}/{1}".format(parts[0].lower(), parts[1].replace("\\", "/").lower())
+
+
 class OmniorbConan(ConanFile):
     name = "omniorb"
     version = "4.2.2"
@@ -38,6 +44,7 @@ class OmniorbConan(ConanFile):
 
     def build_requirements(self):
         if self.settings.os == "Windows":
+            self.build_requires("python_dev_config/0.6@bincrafters/stable")
             self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
 
     def build_windows(self):
@@ -45,15 +52,22 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
-        omniorb_version = max(int(str(self.settings.compiler.version)), 15)
+        omniorb_version = min(int(str(self.settings.compiler.version)), 15)
         platform_name = "x86_win32_vs_{0}".format(omniorb_version)
 
         config_file_path = os.path.join(self.build_folder, "config/config.mk")
         prepend_file_with(config_file_path, "platform = {0}\n".format(platform_name))
+        self.output.info("Set platform to {0}".format(platform_name))
 
         # 2. set python in the platform path
+        python_exe_path = self.deps_user_info["python_dev_config"].python_exec
+        python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(python_exe_path))[0]
+        platform_file_path = os.path.join(self.build_folder, "mk/platforms/{0}.mk".format(platform_name))
+        prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
+        self.output.info("Set PYTHON to {0}".format(python_cygwin_exe_path))
 
-        raise ConanException("Cannot build on windows yet")
+        self.run('cd src/ && make export', win_bash=True)
+        #raise ConanException("Cannot build on windows yet")
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)

@@ -39,7 +39,7 @@ class OmniorbConan(ConanFile):
                 os.remove(shared_object)
 
     def package_info(self):
-        self.cpp_info.libs = ['omniORB4','omnithread', "omniDynamic4", "COS4"]
+        self.cpp_info.libs = ['omniDynamic4', 'COS4', 'omniORB4','omnithread',]
         if not self.options.shared:
             self.cpp_info.libs += ['pthread']
 

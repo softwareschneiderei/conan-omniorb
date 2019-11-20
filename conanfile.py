@@ -70,8 +70,8 @@ class OmniorbConan(ConanFile):
         prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
         self.output.info("Set PYTHON to {0}".format(python_cygwin_exe_path))
 
-        self.run('cd src/ && make export', win_bash=True)
-        #raise ConanException("Cannot build on windows yet")
+        with tools.vcvars(self.settings):
+            self.run('cd src/ && make export', win_bash=True)
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)

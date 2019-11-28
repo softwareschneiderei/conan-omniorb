@@ -101,7 +101,7 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Unsupported OS")
 
     def windows_libraries(self):
-        base_names = ['COS4', 'COSDynamic', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread']
+        base_names = ['COS4', 'COSDynamic4', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread']
         suffix = library_suffix(self.settings.build_type, self.options.shared)
         return (lib + suffix for lib in base_names)
 
@@ -135,6 +135,6 @@ class OmniorbConan(ConanFile):
             self.cpp_info.libs += ['pthread']
 
     def package_info_windows(self):
-        self.cpp_info.libs = [x for x in self.windows_libraries()]
+        self.cpp_info.libs = [x for x in self.windows_libraries()] + ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
         self.cpp_info.libdirs = ["lib/x86_win32"]
         self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]

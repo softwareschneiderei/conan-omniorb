@@ -106,8 +106,9 @@ class OmniorbConan(ConanFile):
         return (lib + suffix for lib in base_names)
 
     def package_windows(self):
+        self.copy("*.exe", dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=True)
         for lib in self.windows_libraries():
-            self.copy(lib, dst="lib", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=False)
+            self.copy(lib, dst="lib/x86_win32", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=True)
         self.copy("*.h", dst="include", src="include")
         self.copy("*.hxx", dst="include", src="include")
         self.copy("*.hh", dst="include", src="include")
@@ -135,3 +136,5 @@ class OmniorbConan(ConanFile):
 
     def package_info_windows(self):
         self.cpp_info.libs = [x for x in self.windows_libraries()]
+        self.cpp_info.libdirs = ["lib/x86_win32"]
+        self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]

@@ -7,8 +7,7 @@ conan_basic_setup()
 
 add_executable(example example.cpp)
 target_link_libraries(example ${CONAN_LIBS})
-set_property(TARGET example PROPERTY
-  MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # CTest is a testing tool that can be used to test your project.
 # enable_testing()
 # add_test(NAME example

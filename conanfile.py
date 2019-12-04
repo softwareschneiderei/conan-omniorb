@@ -70,6 +70,13 @@ class OmniorbConan(ConanFile):
         prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
         self.output.info("Set PYTHON to {0}".format(python_cygwin_exe_path))
 
+        # 3. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
+        if not self.options.shared:
+            runtime = self.settings.compiler.runtime
+            old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
+            tools.replace_in_file(platform_file_path, old, " -{0} ".format(runtime))
+            self.output.info("Set static runtime to {0}".format(runtime))
+
         with tools.vcvars(self.settings):
             self.run('cd src/ && make export', win_bash=True)
 
@@ -112,6 +119,7 @@ class OmniorbConan(ConanFile):
         self.copy("*.h", dst="include", src="include")
         self.copy("*.hxx", dst="include", src="include")
         self.copy("*.hh", dst="include", src="include")
+        self.copy("*.py", dst="lib/python", src="lib/python")
 
     def package_linux(self):
         autotools = AutoToolsBuildEnvironment(self)

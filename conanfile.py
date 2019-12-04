@@ -146,3 +146,6 @@ class OmniorbConan(ConanFile):
         self.cpp_info.libs = [x for x in self.windows_libraries()] + ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
         self.cpp_info.libdirs = ["lib/x86_win32"]
         self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]
+        if not self.options.shared:
+            self.cpp_info.defines += ["_WINSTATIC"]
+

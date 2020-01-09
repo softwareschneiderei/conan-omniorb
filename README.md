@@ -1,4 +1,3 @@
-[![Build Status](https://travis-ci.org/nwoetzel/conan-omniorb.svg?branch=master)](https://travis-ci.org/nwoetzel/conan-omniorb)
 
 # conan-omniorb
 
@@ -10,4 +9,11 @@ Currently there are no generated packages available.
 
 Download conan client from [Conan.io](https://conan.io) and run:
 
-    $ conan test_package
+    $ conan create .
+
+### Windows
+
+Python needs to be available in the PATH for building.
+Depending on the conan "arch" setting, you will require a different python architecture as well:
+ * x86: 32-bit version of python
+ * x86-64: 64-bit version of python

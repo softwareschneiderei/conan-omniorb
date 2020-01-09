@@ -28,6 +28,17 @@ def library_suffix(build_type, shared):
     return "_rt" if shared else "" + "d.lib" if build_type == "Debug" else ".lib"
 
 
+# From https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth/31039095
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
+
+
 class OmniorbConan(ConanFile):
     name = "omniorb"
     version = "4.2.2"
@@ -91,7 +102,7 @@ class OmniorbConan(ConanFile):
     def build(self):
         source_location = os.path.join(self.source_folder, "omniORB")
         self.output.info("source {0}, build {1}".format(source_location, self.build_folder))
-        shutil.copytree(source_location, self.build_folder, dirs_exist_ok=True)
+        copytree(source_location, self.build_folder)
         if self.settings.os == "Windows":
             self.build_windows()
         elif self.settings.os == "Linux":

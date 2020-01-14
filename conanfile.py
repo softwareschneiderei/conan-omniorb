@@ -1,6 +1,10 @@
 import os
 import shutil
 import glob
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 from conans import ConanFile, tools, AutoToolsBuildEnvironment
 from conans.errors import ConanException, ConanInvalidConfiguration
 
@@ -39,6 +43,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copy2(s, d)
 
 
+
 class OmniorbConan(ConanFile):
     name = "omniorb"
     version = "4.2.2"
@@ -61,10 +66,14 @@ class OmniorbConan(ConanFile):
         if self.settings.os == "Windows":
             self.build_requires("python_dev_config/0.6@bincrafters/stable")
             self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
-
+        
     def build_windows(self):
         if self.settings.compiler != "Visual Studio":
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+        
+        # Python needs to be the same arch as the target (because omniORB uses the .lib file)
+        python_exe_path = self.deps_user_info["python_dev_config"].python_exec
+        self.verify_python_arch(python_exe_path)
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
@@ -75,7 +84,6 @@ class OmniorbConan(ConanFile):
         self.output.info("Set platform to {0}".format(platform_name))
 
         # 2. set python in the platform path
-        python_exe_path = self.deps_user_info["python_dev_config"].python_exec
         python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(python_exe_path))[0]
         platform_file_path = os.path.join(self.build_folder, "mk/platforms/{0}.mk".format(platform_name))
         prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
@@ -159,4 +167,26 @@ class OmniorbConan(ConanFile):
         self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]
         if not self.options.shared:
             self.cpp_info.defines += ["_WINSTATIC"]
+  
+    def run_python_script(self, python_exec, script):
+        output = StringIO()
+        command = '"%s" -c "%s"' % (python_exec, script)
+        self.output.info('running %s' % command)
+        try:
+            self.run(command=command, output=output)
+        except ConanException:
+            self.output.info("(failed)")
+            return None
+        output = output.getvalue().strip()
+        self.output.info(output)
+        return output if output != "None" else None
+
+    def verify_python_arch(self, python_exec):
+        build_arch = self.settings.arch
+        correct_arch_for = { '32bit': 'x86', '64bit': 'x86-64' }
+        detect_arch = "from __future__ import print_function; import platform; print(platform.architecture()[0])"
+        python_arch = self.run_python_script(python_exec, detect_arch)
+        actual_arch = correct_arch_for[python_arch]
+        if actual_arch != build_arch:
+            raise ConanInvalidConfiguration("Incompatible python architecture: python: {0}, but conan build is {1} ({2}).".format(actual_arch, build_arch, python_arch))
 

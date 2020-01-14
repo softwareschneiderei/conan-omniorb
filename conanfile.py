@@ -46,7 +46,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
 
 class OmniorbConan(ConanFile):
     name = "omniorb"
-    version = "4.2.2"
+    version = "4.2.3"
     license = "GNU Lesser General Public License (for the libraries), and GNU General Public License (for the tools)"
     url = "<Package recipe repository url here, for issues about the package>"
     description = "omniORB is a robust high performance CORBA ORB for C++ and Python"

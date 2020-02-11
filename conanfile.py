@@ -187,7 +187,7 @@ class OmniorbConan(ConanFile):
 
     def verify_python_arch(self, python_exec):
         build_arch = self.settings.arch
-        correct_arch_for = { '32bit': 'x86', '64bit': 'x86-64' }
+        correct_arch_for = { '32bit': 'x86', '64bit': 'x86_64' }
         detect_arch = "from __future__ import print_function; import platform; print(platform.architecture()[0])"
         python_arch = self.run_python_script(python_exec, detect_arch)
         actual_arch = correct_arch_for[python_arch]

@@ -72,7 +72,11 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
-        python_exe_path = self.deps_user_info["python_dev_config"].python_exec
+        try:
+            python_exe_path = self.deps_user_info["python_dev_config"].python_exec
+        except KeyError:
+            raise ConanException("Unable to resolve python executable. Make sure that PATH contains a python installation matching your arch setting, i.e. the path to the executable and the Scripts/ folder")
+            
         self.verify_python_arch(python_exe_path)
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk

@@ -29,7 +29,7 @@ def convert_to_cygwin(path):
 
 
 def library_suffix(build_type, shared):
-    return "_rt" if shared else "" + "d.lib" if build_type == "Debug" else ".lib"
+    return ("_rt" if shared else "") + ("d.lib" if build_type == "Debug" else ".lib")
 
 
 # From https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth/31039095

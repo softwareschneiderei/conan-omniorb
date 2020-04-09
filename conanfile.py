@@ -90,11 +90,13 @@ class OmniorbConan(ConanFile):
         # 2. set python in the platform path
         python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(python_exe_path))[0]
         platform_file_path = os.path.join(self.build_folder, "mk/platforms/{0}.mk".format(platform_name))
+        self.output.info('Platform file is {0}'.format(platform_file_path))
         prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
         self.output.info("Set PYTHON to {0}".format(python_cygwin_exe_path))
 
         # 3. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
         if not self.options.shared:
+            # Static builds default to -MT[d] in the platform file, dynamic to -MD[d]
             runtime = self.settings.compiler.runtime
             old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
             tools.replace_in_file(platform_file_path, old, " -{0} ".format(runtime))
@@ -138,6 +140,7 @@ class OmniorbConan(ConanFile):
     def package_windows(self):
         self.copy("*.exe", dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=True)
         for lib in self.windows_libraries():
+            self.output.info('Packaging library: {0}'.format(lib))
             self.copy(lib, dst="lib/x86_win32", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=True)
         self.copy("*.h", dst="include", src="include")
         self.copy("*.hxx", dst="include", src="include")

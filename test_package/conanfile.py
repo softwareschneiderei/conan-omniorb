@@ -8,8 +8,7 @@ class OmniorbTestConan(ConanFile):
     default_options = "shared=False"
 
     def build(self):
-        cmake = CMake(self, msbuild_verbosity='normal')
-        # Current dir is "test_package/build/<build_id>" and CMakeLists.txt is in "test_package"
+        cmake = CMake(self)
         cmake.configure()
         cmake.build()
 

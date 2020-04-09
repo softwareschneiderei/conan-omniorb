@@ -142,6 +142,7 @@ class OmniorbConan(ConanFile):
 
     def package_windows(self):
         self.copy("*.exe", dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=True)
+        self.copy("*.dll", dst="bin", src=os.path.join(self.build_folder, "bin"))
         for lib in self.windows_libraries():
             self.output.info('Packaging library: {0}'.format(lib))
             self.copy(lib, dst="lib/x86_win32", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=True)

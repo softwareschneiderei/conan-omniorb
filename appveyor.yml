@@ -11,10 +11,22 @@ environment:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
           PYTHON: "C:\\Python38-x64"
           CONAN_ARCHS: "x86_64"
+          CONAN_OPTIONS: "omniorb:shared=False"
           CONAN_VISUAL_VERSIONS: 16
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
           PYTHON: "C:\\Python38"
           CONAN_ARCHS: "x86"
+          CONAN_OPTIONS: "omniorb:shared=False"
+          CONAN_VISUAL_VERSIONS: 16
+        - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+          PYTHON: "C:\\Python38-x64"
+          CONAN_ARCHS: "x86_64"
+          CONAN_OPTIONS: "omniorb:shared=True"
+          CONAN_VISUAL_VERSIONS: 16
+        - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+          PYTHON: "C:\\Python38"
+          CONAN_ARCHS: "x86"
+          CONAN_OPTIONS: "omniorb:shared=True"
           CONAN_VISUAL_VERSIONS: 16
 
 

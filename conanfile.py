@@ -101,6 +101,9 @@ class OmniorbConan(ConanFile):
             old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
             tools.replace_in_file(platform_file_path, old, " -{0} ".format(runtime))
             self.output.info("Set static runtime to {0}".format(runtime))
+        elif self.settings.compiler.runtime != "MD":
+            raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
+        
 
         with tools.vcvars(self.settings):
             self.run('cd src/ && make export', win_bash=True)

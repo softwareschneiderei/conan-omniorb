@@ -48,11 +48,13 @@ class OmniorbConan(ConanFile):
     name = "omniorb"
     version = "4.2.3"
     license = "GNU Lesser General Public License (for the libraries), and GNU General Public License (for the tools)"
-    url = "<Package recipe repository url here, for issues about the package>"
+    url = "https://github.com/conan-io/conan-center-index"
+    homepage = "http://omniorb.sourceforge.net/"
+    topics = ("corba", "rpc")
     description = "omniORB is a robust high performance CORBA ORB for C++ and Python"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False]}
-    default_options = "shared=False"
+    default_options = {"shared": False}
     generators = ["cmake", "txt"]
     root = "omniORB-" + version
 

@@ -1,3 +1,4 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/b444lhqmnt3fdrn5?svg=true)](https://ci.appveyor.com/project/softwareschneiderei/conan-omniorb)
 
 # conan-omniorb
 

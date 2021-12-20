@@ -1,6 +1,7 @@
 import os
 import shutil
 import glob
+import sys
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -66,7 +67,6 @@ class OmniorbConan(ConanFile):
 
     def build_requirements(self):
         if self.settings.os == "Windows":
-            self.build_requires("python_dev_config/0.6@bincrafters/stable")
             self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
     
     def config_options(self):
@@ -82,12 +82,7 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
-        try:
-            python_exe_path = self.deps_user_info["python_dev_config"].python_exec
-        except KeyError:
-            raise ConanException("Unable to resolve python executable. Make sure that PATH contains a python installation matching your arch setting, i.e. the path to the executable and the Scripts/ folder")
-            
-        self.verify_python_arch(python_exe_path)
+        self.verify_python_arch(sys.executable)
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
@@ -98,7 +93,7 @@ class OmniorbConan(ConanFile):
         self.output.info("Set platform to {0}".format(platform_name))
 
         # 2. set python in the platform path
-        python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(python_exe_path))[0]
+        python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(sys.executable))[0]
         platform_file_path = os.path.join(self.build_folder, "mk/platforms/{0}.mk".format(platform_name))
         self.output.info('Platform file is {0}'.format(platform_file_path))
         prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))

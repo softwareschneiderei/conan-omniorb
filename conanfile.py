@@ -158,6 +158,10 @@ class OmniorbConan(ConanFile):
         self.copy("*.hxx", dst="include", src="include")
         self.copy("*.hh", dst="include", src="include")
         self.copy("*.py", dst="lib/python", src="lib/python")
+        # Copy license files
+        self.copy("README.FIRST.txt", dst="licenses")
+        self.copy("COPYING", dst="licenses")
+        self.copy("COPYING.LIB", dst="licenses")
 
     def package_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
@@ -181,7 +185,8 @@ class OmniorbConan(ConanFile):
             self.cpp_info.libs += ['pthread']
 
     def package_info_windows(self):
-        self.cpp_info.libs = [x for x in self.windows_libraries()] + ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
+        self.cpp_info.libs = self.windows_libraries()
+        self.cpp_info.system_libs = ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
         self.cpp_info.libdirs = ["lib/x86_win32"]
         self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]
         if not self.options.shared:

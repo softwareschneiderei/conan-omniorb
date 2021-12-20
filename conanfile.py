@@ -53,8 +53,8 @@ class OmniorbConan(ConanFile):
     topics = ("corba", "rpc")
     description = "omniORB is a robust high performance CORBA ORB for C++ and Python"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
-    default_options = {"shared": False}
+    options = {"shared": [True, False], "fPIC": [True, False]}
+    default_options = {"shared": False, "fPIC": True}
     generators = ["cmake", "txt"]
     root = "omniORB-" + version
 
@@ -68,7 +68,15 @@ class OmniorbConan(ConanFile):
         if self.settings.os == "Windows":
             self.build_requires("python_dev_config/0.6@bincrafters/stable")
             self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
-        
+    
+    def config_options(self):
+        if self.settings.os == "Windows":
+            del self.options.fPIC
+    
+    def configure(self):
+        if self.options.shared:
+            del self.options.fPIC
+  
     def build_windows(self):
         if self.settings.compiler != "Visual Studio":
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")

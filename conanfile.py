@@ -6,8 +6,16 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from io import StringIO
-from conans import ConanFile, tools, AutoToolsBuildEnvironment
-from conans.errors import ConanException, ConanInvalidConfiguration
+
+from conan import ConanFile
+from conan import tools
+from conan.tools.files import save, load, get, replace_in_file
+from conan.tools.gnu import AutotoolsToolchain, AutotoolsDeps
+from conan.tools.microsoft import unix_path, VCVars, is_msvc
+from conan.errors import ConanInvalidConfiguration
+from conan.errors import ConanException
+
+from conans import tools
 
 
 def prepend_file_with(file_path, line):
@@ -58,16 +66,13 @@ class OmniorbConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
     generators = ["cmake", "txt"]
     root = "omniORB-" + version
+    win_bash = True
 
     def source(self):
         archive_name = "omniORB-{0}.tar.bz2".format(self.version)
         source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-{0}/{1}".format(self.version, archive_name)
-        tools.get(source_url)
+        get(self, url=source_url)
         shutil.move("omniORB-{0}".format(self.version), "omniORB")
-
-    def build_requirements(self):
-        if self.settings.os == "Windows":
-            self.build_requires("cygwin_installer/2.9.0@bincrafters/stable")
     
     def config_options(self):
         if self.settings.os == "Windows":
@@ -82,7 +87,7 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
-        self.verify_python_arch(sys.executable)
+        self.verify_python_arch(convert_to_cygwin(sys.executable))
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
@@ -104,14 +109,15 @@ class OmniorbConan(ConanFile):
             # Static builds default to -MT[d] in the platform file, dynamic to -MD[d]
             runtime = self.settings.compiler.runtime
             old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
-            tools.replace_in_file(platform_file_path, old, " -{0} ".format(runtime))
+            replace_in_file(self, platform_file_path, search=old, replace=" -{0} ".format(runtime))
             self.output.info("Set static runtime to {0}".format(runtime))
         elif self.settings.compiler.runtime != "MD":
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
         
-
+        # 4. Build!
+        src_folder = convert_to_cygwin(os.path.join(self.build_folder, "src/"))
         with tools.vcvars(self.settings):
-            self.run('cd src/ && make export', win_bash=True)
+            self.run('cd {0} && make export'.format(src_folder))
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
@@ -198,8 +204,8 @@ class OmniorbConan(ConanFile):
         self.output.info('running %s' % command)
         try:
             self.run(command=command, output=output)
-        except ConanException:
-            self.output.info("(failed)")
+        except ConanException as e:
+            self.output.info("(failed: {0})".format(e))
             return None
         output = output.getvalue().strip()
         self.output.info(output)
@@ -210,6 +216,8 @@ class OmniorbConan(ConanFile):
         correct_arch_for = { '32bit': 'x86', '64bit': 'x86_64' }
         detect_arch = "from __future__ import print_function; import platform; print(platform.architecture()[0])"
         python_arch = self.run_python_script(python_exec, detect_arch)
+        if python_arch is None:
+            raise ConanInvalidConfiguration("Unable to run python inline script to determine architecture")
         actual_arch = correct_arch_for[python_arch]
         if actual_arch != build_arch:
             raise ConanInvalidConfiguration("Incompatible python architecture: python: {0}, but conan build is {1} ({2}).".format(actual_arch, build_arch, python_arch))

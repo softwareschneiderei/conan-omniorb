@@ -152,7 +152,7 @@ class OmniorbConan(ConanFile):
     def windows_libraries(self):
         base_names = ['COS4', 'COSDynamic4', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread']
         suffix = library_suffix(self.settings.build_type, self.options.shared)
-        return (lib + suffix for lib in base_names)
+        return [lib + suffix for lib in base_names]
 
     def package_windows(self):
         self.copy("*.exe", dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=True)

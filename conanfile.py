@@ -66,7 +66,6 @@ class OmniorbConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
     generators = ["cmake", "txt"]
     root = "omniORB-" + version
-    win_bash = True
 
     def source(self):
         archive_name = "omniORB-{0}.tar.bz2".format(self.version)
@@ -87,11 +86,11 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
-        self.verify_python_arch(convert_to_cygwin(sys.executable))
+        self.verify_python_arch(sys.executable)
 
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
-        platform_name = "x86_win32_vs_{0}".format(omniorb_version)
+        platform_name = f"x86_win32_vs_{omniorb_version}"
 
         config_file_path = os.path.join(self.build_folder, "config/config.mk")
         prepend_file_with(config_file_path, "platform = {0}\n".format(platform_name))
@@ -99,10 +98,14 @@ class OmniorbConan(ConanFile):
 
         # 2. set python in the platform path
         python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(sys.executable))[0]
-        platform_file_path = os.path.join(self.build_folder, "mk/platforms/{0}.mk".format(platform_name))
-        self.output.info('Platform file is {0}'.format(platform_file_path))
-        prepend_file_with(platform_file_path, "PYTHON = {0}\n".format(python_cygwin_exe_path))
-        self.output.info("Set PYTHON to {0}".format(python_cygwin_exe_path))
+        platform_file_path = os.path.join(self.build_folder, f"mk/platforms/{platform_name}.mk")
+        self.output.info(f'Platform file is f{platform_file_path}')
+        prepend_file_with(platform_file_path, f"PYTHON = {python_cygwin_exe_path}\n")
+        self.output.info(f"Set PYTHON to {python_cygwin_exe_path}")
+
+        # 2b. Fix python version detection, so that it works with 2 digit minor versions
+        python_mk_path = os.path.join(self.build_folder, "mk/python.mk")
+        replace_in_file(self, python_mk_path, search='sys.version[:3]', replace='".".join(sys.version.split(".", 3)[:2])')
 
         # 3. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
         if not self.options.shared:
@@ -115,9 +118,9 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
         
         # 4. Build!
-        src_folder = convert_to_cygwin(os.path.join(self.build_folder, "src/"))
-        with tools.vcvars(self.settings):
-            self.run('cd {0} && make export'.format(src_folder))
+        src_folder = os.path.join(self.build_folder, "src/")
+        with tools.vcvars(self):
+            self.run(f'set PATH=%PATH%;C:\\cygwin64\\bin&&cd {src_folder}&&make export')
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)

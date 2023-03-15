@@ -125,11 +125,12 @@ class OmniorbConan(ConanFile):
         # 5. Build!
         src_folder = os.path.join(self.build_folder, "src/")
         with tools.vcvars(self):
-            old_path = self.run_command("echo %PATH%")
-            new_path = old_path + f";{cygwin_bin_path}"
+            old_path = self.run_command("echo %PATH%").split(";")
+            # Remove paths that contain "usr/bin"/linux tools as they might interfere with cygwin later
+            new_path = ';'.join([x for x in old_path if "usr\\bin" not in x]) + f";{cygwin_bin_path}"
             self.output.info(f"Rewriting PATH to {new_path}")
             with tools.environment_append({"PATH": new_path}):
-                self.run(f'echo %PATH%&&cd {src_folder}&&make export')
+                self.run(f'cd {src_folder}&&make export')
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)

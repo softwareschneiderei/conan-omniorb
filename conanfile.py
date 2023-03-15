@@ -31,7 +31,7 @@ def prepend_file_with(file_path, line):
         file.writelines(lines)
 
 
-def convert_to_cygwin(path):
+def to_cygwin_path(path):
     # Split at drive-separator
     parts = path.split(":\\", 1)
     return "/cygdrive/{0}/{1}".format(parts[0].lower(), parts[1].replace("\\", "/").lower())
@@ -80,10 +80,15 @@ class OmniorbConan(ConanFile):
     def configure(self):
         if self.options.shared:
             del self.options.fPIC
-  
+
     def build_windows(self):
         if self.settings.compiler != "Visual Studio":
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+
+        # Try to get cygwin from env, or use the default path
+        cygwin_bin_path = os.getenv("CYGWIN_BIN_PATH")
+        if cygwin_bin_path is None:
+            cygwin_bin_path = "C:\\cygwin64\\bin"
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
         self.verify_python_arch(sys.executable)
@@ -97,30 +102,34 @@ class OmniorbConan(ConanFile):
         self.output.info("Set platform to {0}".format(platform_name))
 
         # 2. set python in the platform path
-        python_cygwin_exe_path = os.path.splitext(convert_to_cygwin(sys.executable))[0]
+        python_cygwin_exe_path = os.path.splitext(to_cygwin_path(sys.executable))[0]
         platform_file_path = os.path.join(self.build_folder, f"mk/platforms/{platform_name}.mk")
         self.output.info(f'Platform file is f{platform_file_path}')
         prepend_file_with(platform_file_path, f"PYTHON = {python_cygwin_exe_path}\n")
         self.output.info(f"Set PYTHON to {python_cygwin_exe_path}")
 
-        # 2b. Fix python version detection, so that it works with 2 digit minor versions
+        # 3. Fix python version detection, so that it works with 2 digit minor versions
         python_mk_path = os.path.join(self.build_folder, "mk/python.mk")
         replace_in_file(self, python_mk_path, search='sys.version[:3]', replace='".".join(sys.version.split(".", 3)[:2])')
 
-        # 3. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
+        # 4. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
         if not self.options.shared:
             # Static builds default to -MT[d] in the platform file, dynamic to -MD[d]
             runtime = self.settings.compiler.runtime
             old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
             replace_in_file(self, platform_file_path, search=old, replace=" -{0} ".format(runtime))
-            self.output.info("Set static runtime to {0}".format(runtime))
+            self.output.info(f"Set static runtime to {runtime}")
         elif self.settings.compiler.runtime != "MD":
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
         
-        # 4. Build!
+        # 5. Build!
         src_folder = os.path.join(self.build_folder, "src/")
         with tools.vcvars(self):
-            self.run(f'set PATH=%PATH%;C:\\cygwin64\\bin&&cd {src_folder}&&make export')
+            old_path = self.run_command("echo %PATH%")
+            new_path = old_path + f";{cygwin_bin_path}"
+            self.output.info(f"Rewriting PATH to {new_path}")
+            with tools.environment_append({"PATH": new_path}):
+                self.run(f'echo %PATH%&&cd {src_folder}&&make export')
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
@@ -202,14 +211,16 @@ class OmniorbConan(ConanFile):
             self.cpp_info.defines += ["_WINSTATIC"]
   
     def run_python_script(self, python_exec, script):
+        return self.run_command('"%s" -c "%s"' % (python_exec, script))
+
+    def run_command(self, command):
         output = StringIO()
-        command = '"%s" -c "%s"' % (python_exec, script)
-        self.output.info('running %s' % command)
+        self.output.info(f'running {command}')
         try:
             self.run(command=command, output=output)
         except ConanException as e:
-            self.output.info("(failed: {0})".format(e))
-            return None
+            raise ConanInvalidConfiguration(f"{command} failed: {e})")
+        
         output = output.getvalue().strip()
         self.output.info(output)
         return output if output != "None" else None
@@ -219,8 +230,6 @@ class OmniorbConan(ConanFile):
         correct_arch_for = { '32bit': 'x86', '64bit': 'x86_64' }
         detect_arch = "from __future__ import print_function; import platform; print(platform.architecture()[0])"
         python_arch = self.run_python_script(python_exec, detect_arch)
-        if python_arch is None:
-            raise ConanInvalidConfiguration("Unable to run python inline script to determine architecture")
         actual_arch = correct_arch_for[python_arch]
         if actual_arch != build_arch:
             raise ConanInvalidConfiguration("Incompatible python architecture: python: {0}, but conan build is {1} ({2}).".format(actual_arch, build_arch, python_arch))

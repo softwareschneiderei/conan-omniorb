@@ -9,13 +9,11 @@ except ImportError:
 
 from conan import ConanFile
 from conan import tools
+from conan.tools.env import Environment
 from conan.tools.files import save, load, get, replace_in_file
 from conan.tools.gnu import AutotoolsToolchain, AutotoolsDeps
-from conan.tools.microsoft import unix_path, VCVars, is_msvc
-from conan.errors import ConanInvalidConfiguration
-from conan.errors import ConanException
-
-from conans import tools
+from conan.tools.microsoft import VCVars, is_msvc
+from conan.errors import ConanException, ConanInvalidConfiguration
 
 
 def prepend_file_with(file_path, line):
@@ -81,14 +79,27 @@ class OmniorbConan(ConanFile):
         if self.options.shared:
             del self.options.fPIC
 
-    def build_windows(self):
-        if self.settings.compiler != "Visual Studio":
-            raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+    def generate(self):
+        if not is_msvc(self):
+            return
+        
+        ms = VCVars(self)
+        ms.generate()
 
         # Try to get cygwin from env, or use the default path
         cygwin_bin_path = os.getenv("CYGWIN_BIN_PATH")
         if cygwin_bin_path is None:
             cygwin_bin_path = "C:\\cygwin64\\bin"
+
+        env = Environment()
+        env.append_path("PATH", cygwin_bin_path)
+        envvars = env.vars(self)
+        envvars.save_script("setpath")
+
+    def build_windows(self):
+        if not is_msvc(self):
+            raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+
         
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
         self.verify_python_arch(sys.executable)
@@ -124,13 +135,8 @@ class OmniorbConan(ConanFile):
         
         # 5. Build!
         src_folder = os.path.join(self.build_folder, "src/")
-        with tools.vcvars(self):
-            old_path = self.run_command("echo %PATH%").split(";")
-            # Remove paths that contain "usr/bin"/linux tools as they might interfere with cygwin later
-            new_path = ';'.join([x for x in old_path if "usr\\bin" not in x]) + f";{cygwin_bin_path}"
-            self.output.info(f"Rewriting PATH to {new_path}")
-            with tools.environment_append({"PATH": new_path}):
-                self.run(f'cd {src_folder}&&make export')
+        self.run('echo %PATH%')
+        self.run(f'cd {src_folder}&&make export')
 
     def build_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
@@ -218,7 +224,7 @@ class OmniorbConan(ConanFile):
         output = StringIO()
         self.output.info(f'running {command}')
         try:
-            self.run(command=command, output=output)
+            self.run(command=command, output=output, env=None)
         except ConanException as e:
             raise ConanInvalidConfiguration(f"{command} failed: {e})")
         

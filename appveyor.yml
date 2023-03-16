@@ -1,21 +1,15 @@
 build: false
 
-environment:
-
-    CONAN_USERNAME: "softwareschneiderei"
-    CONAN_CHANNEL: "testing"
-    CONAN_REMOTES: "https://api.bintray.com/conan/bincrafters/public-conan"
-    CONAN_UPLOAD: "https://api.bintray.com/conan/softwareschneiderei/conan"
-    
+environment:    
     matrix:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
           PYTHON: "C:\\Python38-x64"
 
-
 install:
-  - set PATH=%PYTHON%;%PYTHON%/Scripts/;%PATH%
+  - set PATH=%PYTHON%;%PYTHON%\Scripts;C:\Windows\system32;C:\Program Files\CMake\bin
   - pip.exe install conan==1.59.0
   - conan user # It creates the conan data directory
 
 test_script:
+  # NOTE: This needs Cygwin to be installed in C:\cygwin32
   - conan create .

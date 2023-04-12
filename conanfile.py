@@ -2,19 +2,14 @@ import os
 import shutil
 import glob
 import sys
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
-
+from io import StringIO
 from conan import ConanFile
 from conan import tools
 from conan.tools.env import Environment
-from conan.tools.files import save, load, get, replace_in_file
+from conan.tools.files import copy, save, load, get, replace_in_file
 from conan.tools.gnu import AutotoolsToolchain, AutotoolsDeps
 from conan.tools.microsoft import VCVars, is_msvc
 from conan.errors import ConanException, ConanInvalidConfiguration
-
 
 def prepend_file_with(file_path, line):
     lines = []
@@ -62,7 +57,6 @@ class OmniorbConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
-    generators = ["cmake", "txt"]
     root = "omniORB-" + version
 
     def source(self):
@@ -171,22 +165,25 @@ class OmniorbConan(ConanFile):
         return [lib + suffix for lib in base_names]
 
     def package_windows(self):
-        self.copy("*.exe", dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=True)
+        from os.path import join
+        copy(self, "*.exe", dst=join(self.package_folder, "bin"), src=join(self.build_folder, "bin"), keep_path=True)
         # Copy only the correct dlls for shared builds
         if self.options.shared:
             pattern = "*_rt.dll" if self.settings.build_type != "Debug" else "*_rtd.dll"
-            self.copy(pattern, dst="bin", src=os.path.join(self.build_folder, "bin"), keep_path=False)
+            copy(self, pattern, dst=join(self.package_folder, "bin"),
+                 src=join(self.build_folder, "bin"), keep_path=False)
         for lib in self.windows_libraries():
             self.output.info('Packaging library: {0}'.format(lib))
-            self.copy(lib, dst="lib/x86_win32", src=os.path.join(self.build_folder, "lib/x86_win32"), keep_path=True)
-        self.copy("*.h", dst="include", src="include")
-        self.copy("*.hxx", dst="include", src="include")
-        self.copy("*.hh", dst="include", src="include")
-        self.copy("*.py", dst="lib/python", src="lib/python")
+            copy(self, lib, dst=join(self.package_folder, "lib/x86_win32"),
+                 src=join(self.build_folder, "lib/x86_win32"), keep_path=True)
+        copy(self, "*.h", dst=join(self.package_folder, "include"), src=join(self.build_folder, "include"))
+        copy(self, "*.hxx", dst=join(self.package_folder, "include"), src=join(self.build_folder, "include"))
+        copy(self, "*.hh", dst=join(self.package_folder, "include"), src=join(self.build_folder, "include"))
+        copy(self, "*.py", dst=join(self.package_folder, "lib/python"), src=join(self.build_folder, "lib/python"))
         # Copy license files
-        self.copy("README.FIRST.txt", dst="licenses")
-        self.copy("COPYING", dst="licenses")
-        self.copy("COPYING.LIB", dst="licenses")
+        copy(self, "README.FIRST.txt", dst="licenses", src=self.build_folder)
+        copy(self, "COPYING", dst="licenses", src=self.build_folder)
+        copy(self, "COPYING.LIB", dst="licenses", src=self.build_folder)
 
     def package_linux(self):
         autotools = AutoToolsBuildEnvironment(self)
@@ -221,14 +218,14 @@ class OmniorbConan(ConanFile):
         return self.run_command('"%s" -c "%s"' % (python_exec, script))
 
     def run_command(self, command):
-        output = StringIO()
+        stream = StringIO()
         self.output.info(f'running {command}')
         try:
-            self.run(command=command, output=output, env=None)
+            self.run(command=command, stdout=stream, env=None)
         except ConanException as e:
             raise ConanInvalidConfiguration(f"{command} failed: {e})")
         
-        output = output.getvalue().strip()
+        output = stream.getvalue().strip()
         self.output.info(output)
         return output if output != "None" else None
 

@@ -3,12 +3,11 @@ build: false
 environment:    
     matrix:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
-          PYTHON: "C:\\Python38-x64"
+          PYTHON: "C:\\Python311-x64"
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\Scripts;C:\Windows\system32;C:\Program Files\CMake\bin
-  - pip.exe install conan==1.59.0
-  - conan user # It creates the conan data directory
+  - pip.exe install conan
 
 test_script:
   # NOTE: This needs Cygwin to be installed in C:\cygwin32

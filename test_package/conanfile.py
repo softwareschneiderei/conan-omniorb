@@ -1,3 +1,4 @@
+import os
 from conan import ConanFile
 from conan.tools.cmake import CMake
 
@@ -17,7 +18,6 @@ class OmniorbTestConan(ConanFile):
         self.requires(self.tested_reference_str)
 
     def test(self):
-        # Currently does not work because VS builds to a release folder
-        #os.chdir("bin")
-        #self.run(".%sexample" % os.sep)
+        os.chdir(self.cpp.build.bindir)
+        self.run(".%sexample" % os.sep)
         pass

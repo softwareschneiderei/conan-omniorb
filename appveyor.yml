@@ -8,6 +8,7 @@ environment:
 install:
   - set PATH=%PYTHON%;%PYTHON%\Scripts;C:\Windows\system32;C:\Program Files\CMake\bin
   - pip.exe install conan
+  - conan profile detect
 
 test_script:
   # NOTE: This needs Cygwin to be installed in C:\cygwin32

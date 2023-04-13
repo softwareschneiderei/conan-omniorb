@@ -94,7 +94,6 @@ class OmniorbConan(ConanFile):
         if not is_msvc(self):
             raise ConanInvalidConfiguration("Can only build using visual studio on windows")
 
-        
         # Python needs to be the same arch as the target (because omniORB uses the .lib file)
         self.verify_python_arch(sys.executable)
 
@@ -103,8 +102,8 @@ class OmniorbConan(ConanFile):
         platform_name = f"x86_win32_vs_{omniorb_version}"
 
         config_file_path = os.path.join(self.build_folder, "config/config.mk")
-        prepend_file_with(config_file_path, "platform = {0}\n".format(platform_name))
-        self.output.info("Set platform to {0}".format(platform_name))
+        prepend_file_with(config_file_path, f"platform = {platform_name}\n")
+        self.output.info(f"Set platform to {platform_name}")
 
         # 2. set python in the platform path
         python_cygwin_exe_path = os.path.splitext(to_cygwin_path(sys.executable))[0]
@@ -117,14 +116,19 @@ class OmniorbConan(ConanFile):
         python_mk_path = os.path.join(self.build_folder, "mk/python.mk")
         replace_in_file(self, python_mk_path, search='sys.version[:3]', replace='".".join(sys.version.split(".", 3)[:2])')
 
-        # 4. Setup the right runtime (which is only relevant for static builds - dlls should always use the dll runtime)
+        # 4. Set up the right runtime. This is only relevant for static builds, DLLs should always use the DLL runtime
         if not self.options.shared:
             # Static builds default to -MT[d] in the platform file, dynamic to -MD[d]
             runtime = self.settings.compiler.runtime
-            old = " -MTd " if self.settings.build_type == "Debug" else " -MT "
-            replace_in_file(self, platform_file_path, search=old, replace=" -{0} ".format(runtime))
-            self.output.info(f"Set static runtime to {runtime}")
-        elif self.settings.compiler.runtime != "MD":
+            old = "MTd" if self.settings.build_type == "Debug" else "MT"
+            new = "MT" if runtime == "static" else "MD"
+            if self.settings.compiler.runtime_type == "Debug":
+                new += "d"
+
+            if old != new:
+                replace_in_file(self, platform_file_path, search=f" -{old} ", replace=f" -{new} ")
+                self.output.info(f"Changing static runtime flag {old} to {new}")
+        elif self.settings.compiler.runtime != "dynamic":
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
         
         # 5. Build!
@@ -231,7 +235,7 @@ class OmniorbConan(ConanFile):
 
     def verify_python_arch(self, python_exec):
         build_arch = self.settings.arch
-        correct_arch_for = { '32bit': 'x86', '64bit': 'x86_64' }
+        correct_arch_for = {'32bit': 'x86', '64bit': 'x86_64'}
         detect_arch = "from __future__ import print_function; import platform; print(platform.architecture()[0])"
         python_arch = self.run_python_script(python_exec, detect_arch)
         actual_arch = correct_arch_for[python_arch]

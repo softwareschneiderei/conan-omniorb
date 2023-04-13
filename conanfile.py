@@ -7,7 +7,7 @@ from conan import ConanFile
 from conan import tools
 from conan.tools.env import Environment
 from conan.tools.files import copy, save, load, get, replace_in_file
-from conan.tools.gnu import AutotoolsToolchain, AutotoolsDeps
+from conan.tools.gnu import AutotoolsToolchain, Autotools
 from conan.tools.microsoft import VCVars, is_msvc
 from conan.errors import ConanException, ConanInvalidConfiguration
 
@@ -48,6 +48,11 @@ class OmniorbConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
     root = "omniORB-" + version
 
+    def layout(self):
+        self.folders.source = "src"
+        self.folders.build = "build"
+        self.folders.generators = "build"
+
     def source(self):
         archive_name = "omniORB-{0}.tar.bz2".format(self.version)
         source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-{0}/{1}".format(self.version, archive_name)
@@ -59,25 +64,28 @@ class OmniorbConan(ConanFile):
             del self.options.fPIC
     
     def configure(self):
+        if self.settings.os == "Windows" and not is_msvc(self):
+            raise ConanInvalidConfiguration("Can only build using visual studio on windows")
         if self.options.shared:
             del self.options.fPIC
 
     def generate(self):
-        if not is_msvc(self):
-            return
-        
-        ms = VCVars(self)
-        ms.generate()
+        if self.settings.os == "Windows":
+            ms = VCVars(self)
+            ms.generate()
 
-        # Try to get cygwin from env, or use the default path
-        cygwin_bin_path = os.getenv("CYGWIN_BIN_PATH")
-        if cygwin_bin_path is None:
-            cygwin_bin_path = "C:\\cygwin64\\bin"
+            # Try to get cygwin from env, or use the default path
+            cygwin_bin_path = os.getenv("CYGWIN_BIN_PATH")
+            if cygwin_bin_path is None:
+                cygwin_bin_path = "C:\\cygwin64\\bin"
 
-        env = Environment()
-        env.append_path("PATH", cygwin_bin_path)
-        envvars = env.vars(self)
-        envvars.save_script("setpath")
+            env = Environment()
+            env.append_path("PATH", cygwin_bin_path)
+            envvars = env.vars(self)
+            envvars.save_script("setpath")
+        elif self.settings.os == "Linux":
+            toolchain = AutotoolsToolchain(self)
+            toolchain.generate()
 
     def build_windows(self):
         if not is_msvc(self):
@@ -126,11 +134,11 @@ class OmniorbConan(ConanFile):
         self.run(f'cd {src_folder}&&make export')
 
     def build_linux(self):
-        autotools = AutoToolsBuildEnvironment(self)
+        autotools = Autotools(self)
         args = [
             "--disable-static" if self.options.shared else "--enable-static",
         ]
-        autotools.configure(configure_dir=self.build_folder, args=args)
+        autotools.configure(build_script_folder=self.build_folder, args=args)
         autotools.make()
 
     def build(self):
@@ -179,7 +187,7 @@ class OmniorbConan(ConanFile):
         copy(self, "COPYING.LIB", dst="licenses", src=self.build_folder)
 
     def package_linux(self):
-        autotools = AutoToolsBuildEnvironment(self)
+        autotools = Autotools(self)
         autotools.install()
         # Delete all shared-objects for static-mode, since we cannot prevent building them
         if not self.options.shared:
@@ -195,9 +203,9 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Unsupported OS")
 
     def package_info_linux(self):
-        self.cpp_info.libs = ['omniDynamic4', 'COS4', 'omniORB4','omnithread',]
+        self.cpp_info.libs = ['omniDynamic4', 'COS4', 'omniORB4', 'omnithread', ]
         if not self.options.shared:
-            self.cpp_info.libs += ['pthread']
+            self.cpp_info.system_libs += ['pthread']
 
     def package_info_windows(self):
         self.cpp_info.libs = self.windows_libraries()

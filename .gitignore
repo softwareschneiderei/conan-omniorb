@@ -2,3 +2,7 @@
 /tmp/
 /.idea/
 /venv/
+
+# Local conan workflow temporary files
+/src
+/build

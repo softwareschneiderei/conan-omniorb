@@ -2,9 +2,9 @@ import os
 import shutil
 import glob
 import sys
+from os.path import join
 from io import StringIO
 from conan import ConanFile
-from conan import tools
 from conan.tools.env import Environment
 from conan.tools.files import copy, save, load, get, replace_in_file
 from conan.tools.gnu import AutotoolsToolchain, Autotools
@@ -85,7 +85,23 @@ class OmniorbConan(ConanFile):
             envvars.save_script("setpath")
         elif self.settings.os == "Linux":
             toolchain = AutotoolsToolchain(self)
+            prefix = join(self.build_folder, "install")
+            toolchain.configure_args = [
+                f"--prefix={prefix}",
+                "--disable-static" if self.options.shared else "--enable-static",
+            ]
             toolchain.generate()
+
+    def _fix_python_version_detection(self):
+        # The actual code can only detect versions up to 3.9, but fails on 3.1X
+        affected_files = [
+            "mk/python.mk",
+            "src/tool/omniidl/python3/scripts/omniidl.in",
+            "src/tool/omniidl/python/scripts/omniidl.in"
+        ]
+        for file in affected_files:
+            full_path = join(self.build_folder, file)
+            replace_in_file(self, full_path, search='sys.version[:3]', replace='".".join(sys.version.split(".", 3)[:2])')
 
     def build_windows(self):
         if not is_msvc(self):
@@ -98,20 +114,19 @@ class OmniorbConan(ConanFile):
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
         platform_name = f"x86_win32_vs_{omniorb_version}"
 
-        config_file_path = os.path.join(self.build_folder, "config/config.mk")
+        config_file_path = join(self.build_folder, "config/config.mk")
         prepend_file_with(config_file_path, f"platform = {platform_name}\n")
         self.output.info(f"Set platform to {platform_name}")
 
         # 2. set python in the platform path
         python_cygwin_exe_path = os.path.splitext(to_cygwin_path(sys.executable))[0]
-        platform_file_path = os.path.join(self.build_folder, f"mk/platforms/{platform_name}.mk")
+        platform_file_path = join(self.build_folder, f"mk/platforms/{platform_name}.mk")
         self.output.info(f'Platform file is f{platform_file_path}')
         prepend_file_with(platform_file_path, f"PYTHON = {python_cygwin_exe_path}\n")
         self.output.info(f"Set PYTHON to {python_cygwin_exe_path}")
 
         # 3. Fix python version detection, so that it works with 2 digit minor versions
-        python_mk_path = os.path.join(self.build_folder, "mk/python.mk")
-        replace_in_file(self, python_mk_path, search='sys.version[:3]', replace='".".join(sys.version.split(".", 3)[:2])')
+        self._fix_python_version_detection()
 
         # 4. Set up the right runtime. This is only relevant for static builds, DLLs should always use the DLL runtime
         if not self.options.shared:
@@ -129,20 +144,20 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
         
         # 5. Build!
-        src_folder = os.path.join(self.build_folder, "src/")
+        src_folder = join(self.build_folder, "src/")
         self.run('echo %PATH%')
         self.run(f'cd {src_folder}&&make export')
 
     def build_linux(self):
+        self._fix_python_version_detection()
         autotools = Autotools(self)
-        args = [
-            "--disable-static" if self.options.shared else "--enable-static",
-        ]
-        autotools.configure(build_script_folder=self.build_folder, args=args)
+        autotools.configure(build_script_folder=self.build_folder)
         autotools.make()
+        # conan sets DESTDIR to the package folder unless it's in the args here, which does not really work with omniorb
+        autotools.install(args=["DESTDIR="])
 
     def build(self):
-        source_location = os.path.join(self.source_folder, "omniORB")
+        source_location = join(self.source_folder, "omniORB")
         self.output.info("source {0}, build {1}".format(source_location, self.build_folder))
         shutil.copytree(source_location, self.build_folder, dirs_exist_ok=True)
         if self.settings.os == "Windows":
@@ -166,7 +181,6 @@ class OmniorbConan(ConanFile):
         return [lib + suffix for lib in base_names]
 
     def package_windows(self):
-        from os.path import join
         copy(self, "*.exe", dst=join(self.package_folder, "bin"), src=join(self.build_folder, "bin"), keep_path=True)
         # Copy only the correct dlls for shared builds
         if self.options.shared:
@@ -187,11 +201,12 @@ class OmniorbConan(ConanFile):
         copy(self, "COPYING.LIB", dst="licenses", src=self.build_folder)
 
     def package_linux(self):
-        autotools = Autotools(self)
-        autotools.install()
+        from os.path import join
+        copy(self, "*", dst=self.package_folder, src=join(self.build_folder, "install"))
+
         # Delete all shared-objects for static-mode, since we cannot prevent building them
         if not self.options.shared:
-            for shared_object in glob.iglob(os.path.join(self.package_folder, "lib", "lib*.so*")):
+            for shared_object in glob.iglob(join(self.package_folder, "lib", "lib*.so*")):
                 os.remove(shared_object)
 
     def package_info(self):

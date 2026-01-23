@@ -235,6 +235,8 @@ class OmniorbConan(ConanFile):
                 os.remove(shared_object)
 
     def package_info(self):
+        self.cpp_info.set_property("cmake_file_name", "omniORB4")
+        self.cpp_info.set_property("cmake_target_name", "omniorb::omniorb")
         if self.settings.os == "Windows":
             self.package_info_windows()
         elif self.settings.os == "Linux":

@@ -37,7 +37,7 @@ def library_suffix(build_type, shared):
 
 class OmniorbConan(ConanFile):
     name = "omniorb"
-    version = "4.2.3"
+    version = "4.3.4"
     license = "GNU Lesser General Public License (for the libraries), and GNU General Public License (for the tools)"
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "http://omniorb.sourceforge.net/"
@@ -92,28 +92,15 @@ class OmniorbConan(ConanFile):
             ]
             toolchain.generate()
 
-    def _fix_python_version_detection(self):
-        # The actual code can only detect versions up to 3.9, but fails on 3.1X
-        affected_files = [
-            "mk/python.mk",
-            "src/tool/omniidl/python3/scripts/omniidl.in",
-            "src/tool/omniidl/python/scripts/omniidl.in"
-        ]
-        for file in affected_files:
-            full_path = join(self.build_folder, file)
-            replace_in_file(self, full_path,
-                            search='sys.version[:3]',
-                            replace='".".join(sys.version.split(".", 3)[:2])')
-
     def _fix_omniidl_search_paths(self):
         affected_files = [
             "src/tool/omniidl/python3/scripts/omniidl.in",
-            "src/tool/omniidl/python/scripts/omniidl.in"
+            "src/tool/omniidl/python2/scripts/omniidl.in"
         ]
         for file in affected_files:
             full_path = join(self.build_folder, file)
             replace_in_file(self, full_path,
-                            search='sppath = "@prefix@/lib/python" + sys.version[:3] + "/site-packages"',
+                            search='sppath = "@prefix@/lib/python" + py_version + "/site-packages"',
                             replace='sppath = os.path.dirname(binarchdir) + "/local/lib/python" + ".".join(sys.version.split(".", 3)[:2]) + "/dist-packages"')
 
     def build_windows(self):
@@ -165,7 +152,6 @@ class OmniorbConan(ConanFile):
         # Make sure to fix the search paths before other version detection, because the former contains the 'broken'
         # version detection in its pattern
         self._fix_omniidl_search_paths()
-        self._fix_python_version_detection()
         autotools = Autotools(self)
         autotools.configure(build_script_folder=self.build_folder)
         autotools.make()

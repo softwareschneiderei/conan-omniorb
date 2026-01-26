@@ -212,7 +212,15 @@ class OmniorbConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "omniORB4")
-        self.cpp_info.set_property("cmake_target_name", "omniorb::omniorb")
+        self.cpp_info.set_property("cmake_target_name", "omniORB4::omniORB4")
+        self.cpp_info.components["omniORB4"].libs = ["omniCodeSets4", "omniConnectionMgmt4", "omniORB4", "omniZIOP4"]
+        self.cpp_info.components["omniORB4"].set_property("cmake_target_name", "omniORB4::omniORB4")
+        self.cpp_info.components["thread"].libs = ["omnithread"]
+        self.cpp_info.components["thread"].set_property("cmake_target_name", "omniORB4::thread")
+        self.cpp_info.components["COS4"].libs = ["COS4", "COSDynamic4"]
+        self.cpp_info.components["COS4"].set_property("cmake_target_name", "omniORB4::COS4")
+        self.cpp_info.components["Dynamic4"].libs = ["omniDynamic4", "omniZIOPDynamic4"]
+        self.cpp_info.components["Dynamic4"].set_property("cmake_target_name", "omniORB4::Dynamic4")
         if self.settings.os == "Windows":
             self.package_info_windows()
         elif self.settings.os == "Linux":

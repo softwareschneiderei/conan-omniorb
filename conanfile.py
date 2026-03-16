@@ -117,7 +117,7 @@ class OmniorbConan(ConanFile):
 
     def _fix_python_libdir_detection(self):
         original = "PYLIBDIR := $(PYPREFIX)/libs $(PYPREFIX)/lib/x86_win32"
-        python_libdir = sysconfig.get_config_var('LIBDIR').replace("\\", "/")
+        python_libdir = sysconfig.get_config_var('stdlib').replace("\\", "/")
         self.output.info(f"Setting PYLIBDIR to {python_libdir}")
         fixed = f"PYLIBDIR := {python_libdir}"
         replace_in_file(self, join(self.build_folder, "src/tool/omniidl/cxx/dir.mk"), search=original, replace=fixed)

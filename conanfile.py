@@ -2,6 +2,7 @@ import os
 import shutil
 import glob
 import sys
+import sysconfig
 from os.path import join
 from io import StringIO
 from conan import ConanFile
@@ -92,9 +93,13 @@ class OmniorbConan(ConanFile):
             pyenv = PyEnv(self)
             pyenv.install(["setuptools"])
             pyenv.generate()
-
+            
+            # Needs to be the python installation with the .dll, as that is later loaded by omniidl
+            python_base = sysconfig.get_config_var('installed_base')
+            
             env = Environment()
             env.append_path("PATH", cygwin_bin_path)
+            env.append_path("PATH", python_base)
             envvars = env.vars(self)
             envvars.save_script("setpath")
 
@@ -157,6 +162,7 @@ class OmniorbConan(ConanFile):
 
         # 3.a Fix python version detection, so that it works with 2 digit minor versions
         self._fix_python_version_detection()
+
         # 3.b Fix python libdir detection, so that it works in the presence of venvs
         self._fix_python_libdir_detection()
         

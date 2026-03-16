@@ -3,7 +3,7 @@ import shutil
 import glob
 import sys
 import sysconfig
-from os.path import join
+from os.path import join, normpath
 from io import StringIO
 from conan import ConanFile
 from conan.tools.env import Environment
@@ -117,7 +117,7 @@ class OmniorbConan(ConanFile):
 
     def _fix_python_libdir_detection(self):
         original = "PYLIBDIR := $(PYPREFIX)/libs $(PYPREFIX)/lib/x86_win32"
-        python_libdir = sysconfig.get_config_var('stdlib').replace("\\", "/")
+        python_libdir = normpath(join(sysconfig.get_path('include'), "../libs")).replace("\\", "/")
         self.output.info(f"Setting PYLIBDIR to {python_libdir}")
         fixed = f"PYLIBDIR := {python_libdir}"
         replace_in_file(self, join(self.build_folder, "src/tool/omniidl/cxx/dir.mk"), search=original, replace=fixed)

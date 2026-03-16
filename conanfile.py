@@ -9,6 +9,7 @@ from conan.tools.env import Environment
 from conan.tools.files import copy, save, load, get, replace_in_file
 from conan.tools.gnu import AutotoolsToolchain, Autotools
 from conan.tools.microsoft import VCVars, is_msvc
+from conan.tools.system import PyEnv
 from conan.errors import ConanException, ConanInvalidConfiguration
 
 
@@ -26,9 +27,9 @@ def prepend_file_with(file_path, line):
 
 
 def to_cygwin_path(path):
-    # Split at drive-separator
-    parts = path.split(":\\", 1)
-    return "/cygdrive/{0}/{1}".format(parts[0].lower(), parts[1].replace("\\", "/").lower())
+    # Convert to lower-case and forward slashes, and split at drive-separator
+    parts = path.lower().replace("\\", "/").split(":/", 1)
+    return "/cygdrive/{0}/{1}".format(parts[0], parts[1])
 
 
 def library_suffix(build_type, shared):
@@ -56,8 +57,13 @@ class OmniorbConan(ConanFile):
     def source(self):
         archive_name = "omniORB-{0}.tar.bz2".format(self.version)
         source_url = "https://downloads.sourceforge.net/project/omniorb/omniORB/omniORB-{0}/{1}".format(self.version, archive_name)
+        self.output.info(f"Downloading from {source_url}")
         get(self, url=source_url)
         shutil.move("omniORB-{0}".format(self.version), "omniORB")
+        
+    def tool_requirements(self):
+        if self.settings.os == "Windows":
+            self.tool_requires("cpython/3.12.7")
     
     def config_options(self):
         if self.settings.os == "Windows":
@@ -71,6 +77,9 @@ class OmniorbConan(ConanFile):
 
     def generate(self):
         if self.settings.os == "Windows":
+            if not is_msvc(self):
+                raise ConanInvalidConfiguration("Can only build using visual studio on windows")
+                
             ms = VCVars(self)
             ms.generate()
 
@@ -78,11 +87,20 @@ class OmniorbConan(ConanFile):
             cygwin_bin_path = os.getenv("CYGWIN_BIN_PATH")
             if cygwin_bin_path is None:
                 cygwin_bin_path = "C:\\cygwin64\\bin"
+                
+            # We need a separate python install with setuptools installed
+            pyenv = PyEnv(self)
+            pyenv.install(["setuptools"])
+            pyenv.generate()
 
             env = Environment()
             env.append_path("PATH", cygwin_bin_path)
             envvars = env.vars(self)
             envvars.save_script("setpath")
+
+            # Python needs to be the same arch as the target (because omniORB uses the .lib file)
+            self.verify_python_arch(pyenv.env_exe)
+            
         elif self.settings.os == "Linux":
             toolchain = AutotoolsToolchain(self)
             prefix = join(self.build_folder, "install")
@@ -92,6 +110,11 @@ class OmniorbConan(ConanFile):
             ]
             toolchain.generate()
 
+    def _fix_python_libdir_detection(self):
+        original = "PYLIBDIR := $(PYPREFIX)/libs $(PYPREFIX)/lib/x86_win32"
+        fixed = "PYLIBDIR := $(shell $(PYTHON) -c 'import sys, sysconfig; sys.stdout.write(sysconfig.get_config_var(\"LIBDIR\").replace(\"\\\\\",\"/\"))')"
+        replace_in_file(self, join(self.build_folder, "src/tool/omniidl/cxx/dir.mk"), search=original, replace=fixed)
+        
     def _fix_python_version_detection(self):
         # The actual code can only detect versions up to 3.9, but fails on 3.1X
         affected_files = [
@@ -117,12 +140,6 @@ class OmniorbConan(ConanFile):
                             replace='sppath = os.path.dirname(binarchdir) + "/local/lib/python" + ".".join(sys.version.split(".", 3)[:2]) + "/dist-packages"')
 
     def build_windows(self):
-        if not is_msvc(self):
-            raise ConanInvalidConfiguration("Can only build using visual studio on windows")
-
-        # Python needs to be the same arch as the target (because omniORB uses the .lib file)
-        self.verify_python_arch(sys.executable)
-
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
         omniorb_version = min(int(str(self.settings.compiler.version)), 15)
         platform_name = f"x86_win32_vs_{omniorb_version}"
@@ -132,15 +149,17 @@ class OmniorbConan(ConanFile):
         self.output.info(f"Set platform to {platform_name}")
 
         # 2. set python in the platform path
-        python_cygwin_exe_path = os.path.splitext(to_cygwin_path(sys.executable))[0]
+        python_cygwin_exe_path = os.path.splitext(to_cygwin_path(PyEnv(self).env_exe))[0]
         platform_file_path = join(self.build_folder, f"mk/platforms/{platform_name}.mk")
-        self.output.info(f'Platform file is f{platform_file_path}')
+        self.output.info(f'Platform file is {platform_file_path}')
         prepend_file_with(platform_file_path, f"PYTHON = {python_cygwin_exe_path}\n")
         self.output.info(f"Set PYTHON to {python_cygwin_exe_path}")
 
-        # 3. Fix python version detection, so that it works with 2 digit minor versions
+        # 3.a Fix python version detection, so that it works with 2 digit minor versions
         self._fix_python_version_detection()
-
+        # 3.b Fix python libdir detection, so that it works in the presence of venvs
+        self._fix_python_libdir_detection()
+        
         # 4. Set up the right runtime. This is only relevant for static builds, DLLs should always use the DLL runtime
         if not self.options.shared:
             # Static builds default to -MT[d] in the platform file, dynamic to -MD[d]
@@ -155,7 +174,7 @@ class OmniorbConan(ConanFile):
                 self.output.info(f"Changing static runtime flag {old} to {new}")
         elif self.settings.compiler.runtime != "dynamic":
             raise ConanInvalidConfiguration("Need to use dll runtime for dll builds")
-        
+            
         # 5. Build!
         src_folder = join(self.build_folder, "src/")
         self.run('echo %PATH%')

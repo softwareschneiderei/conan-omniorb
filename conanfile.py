@@ -116,11 +116,13 @@ class OmniorbConan(ConanFile):
             toolchain.generate()
 
     def _fix_python_libdir_detection(self):
-        original = "PYLIBDIR := $(PYPREFIX)/libs $(PYPREFIX)/lib/x86_win32"
-        python_libdir = normpath(join(sysconfig.get_path('include'), "../libs")).replace("\\", "/")
-        self.output.info(f"Setting PYLIBDIR to {python_libdir}")
-        fixed = f"PYLIBDIR := {python_libdir}"
-        replace_in_file(self, join(self.build_folder, "src/tool/omniidl/cxx/dir.mk"), search=original, replace=fixed)
+        # The original libs dir uses the current python installation, but that doesn't have the lib file since it is a venv
+        # The makefiles already use the proper technique in mk/python.mk to resolve the include/ directory by going to the
+        # base python install via sysconfig.get_path("include"), and there does not seem to be a better way to get the Libs/
+        # dir in windows than going relative to the include dir anyways, so we patch that in.
+        original = "$(PYPREFIX)/libs"
+        fixed = f"$(PYINCDIR)/../libs"
+        replace_in_file(self, join(self.build_folder, "src/tool/omniidl/cxx/dir.mk"), search=original, replace=fixed, strict=True)
 
     def _fix_omniidl_search_paths(self):
         affected_files = [

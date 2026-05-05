@@ -4,4 +4,4 @@ project(OmniorbPackageTest CXX)
 find_package(omniORB4 CONFIG REQUIRED)
 
 add_executable(example example.cpp)
-target_link_libraries(example PUBLIC omniORB4::omniORB4)
+target_link_libraries(example PUBLIC omniORB4::omniDynamic4 omniORB4::COS4 omniORB4::omniORB4 omniORB4::thread)

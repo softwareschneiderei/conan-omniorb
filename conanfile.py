@@ -137,7 +137,7 @@ class OmniorbConan(ConanFile):
 
     def build_windows(self):
         # 1. set "platform = x86_win32_vs_<VS-version>" in config/config.mk
-        omniorb_version = min(int(str(self.settings.compiler.version)), 15)
+        omniorb_version = min(int(str(self.settings.compiler.version)), 17)
         platform_name = f"x86_win32_vs_{omniorb_version}"
 
         config_file_path = join(self.build_folder, "config/config.mk")
@@ -204,9 +204,15 @@ class OmniorbConan(ConanFile):
             raise ConanInvalidConfiguration("Unsupported OS")
 
     def windows_libraries(self):
-        base_names = ['COS4', 'COSDynamic4', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread']
+        base_names = ['COS4', 'COSDynamic4', 'omniCodeSets4', 'omniDynamic4', 'omniORB4', 'omnithread', 'omniConnectionMgmt4']
         suffix = library_suffix(self.settings.build_type, self.options.shared)
         return [lib + suffix for lib in base_names]
+
+    def _adapt_library_names(self, libraries):
+        if self.settings.os != "Windows":
+            return libraries        
+        suffix = library_suffix(self.settings.build_type, self.options.shared)
+        return [lib + suffix for lib in libraries]
 
     def package_windows(self):
         copy(self, "*.exe", dst=join(self.package_folder, "bin"), src=join(self.build_folder, "bin"), keep_path=True)
@@ -238,34 +244,31 @@ class OmniorbConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "omniORB4")
-        self.cpp_info.set_property("cmake_target_name", "omniORB4::omniORB4")
-        self.cpp_info.components["omniORB4"].libs = ["omniCodeSets4", "omniConnectionMgmt4", "omniORB4", "omniZIOP4"]
-        self.cpp_info.components["omniORB4"].set_property("cmake_target_name", "omniORB4::omniORB4")
-        self.cpp_info.components["thread"].libs = ["omnithread"]
-        self.cpp_info.components["thread"].set_property("cmake_target_name", "omniORB4::thread")
-        self.cpp_info.components["COS4"].libs = ["COS4", "COSDynamic4"]
-        self.cpp_info.components["COS4"].set_property("cmake_target_name", "omniORB4::COS4")
-        self.cpp_info.components["Dynamic4"].libs = ["omniDynamic4", "omniZIOPDynamic4"]
-        self.cpp_info.components["Dynamic4"].set_property("cmake_target_name", "omniORB4::Dynamic4")
-        if self.settings.os == "Windows":
-            self.package_info_windows()
-        elif self.settings.os == "Linux":
-            self.package_info_linux()
-        else:
-            raise ConanInvalidConfiguration("Unsupported OS")
 
-    def package_info_linux(self):
-        self.cpp_info.libs = ['omniDynamic4', 'COS4', 'omniORB4', 'omnithread', ]
-        if not self.options.shared:
-            self.cpp_info.system_libs += ['pthread']
+        enable_ZIOP = False # TODO: Make this an option, will also have to adapt the list of files in package()..
+        components = {
+            'omniORB4': ["omniCodeSets4", "omniConnectionMgmt4", "omniORB4"],
+            'thread': ["omnithread"],
+            'COS4': ["COS4", "COSDynamic4"],
+            'omniDynamic4': ["omniDynamic4"],
+        }
 
-    def package_info_windows(self):
-        self.cpp_info.libs = self.windows_libraries()
-        self.cpp_info.system_libs = ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
-        self.cpp_info.libdirs = ["lib/x86_win32"]
-        self.cpp_info.defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]
-        if not self.options.shared:
-            self.cpp_info.defines += ["_WINSTATIC"]
+        if enable_ZIOP:
+            components['omniORB4'].append("omniZIOP4")
+            components['omniDynamic4'].append("omniZIOPDynamic4")
+
+        for component, libs in components.items():
+            self.cpp_info.components[component].libs = self._adapt_library_names(libs) 
+            self.cpp_info.components[component].set_property("cmake_target_name", f"omniORB4::{component}")
+            if self.settings.os == "Windows":
+                self.cpp_info.components[component].libdirs = ["lib/x86_win32"]
+                self.cpp_info.components[component].defines += ["__WIN32__", "__x86__", "_WIN32_WINNT=0x0400", "__NT__", "__OSVERSION__=4"]
+                self.cpp_info.components[component].system_libs = ["ws2_32.lib", "mswsock.lib", "advapi32.lib"]
+                if not self.options.shared:
+                    self.cpp_info.components[component].defines += ["_WINSTATIC"]
+
+        if self.settings.os == "Linux":
+            self.cpp_info.components[component].system_libs += ['pthread']
   
     def run_python_script(self, python_exec, script):
         return self.run_command('"%s" -c "%s"' % (python_exec, script))

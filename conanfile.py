@@ -250,7 +250,7 @@ class OmniorbConan(ConanFile):
             'omniORB4': ["omniCodeSets4", "omniConnectionMgmt4", "omniORB4"],
             'thread': ["omnithread"],
             'COS4': ["COS4", "COSDynamic4"],
-            'omniDynamic4': ["omniDynamic4"],
+            'Dynamic4': ["omniDynamic4"],
         }
 
         if enable_ZIOP:
@@ -267,8 +267,9 @@ class OmniorbConan(ConanFile):
                 if not self.options.shared:
                     self.cpp_info.components[component].defines += ["_WINSTATIC"]
 
+        self.cpp_info.components['omniORB4'].requires = ["thread"]
         if self.settings.os == "Linux":
-            self.cpp_info.components[component].system_libs += ['pthread']
+            self.cpp_info.components['thread'].system_libs += ['pthread']
   
     def run_python_script(self, python_exec, script):
         return self.run_command('"%s" -c "%s"' % (python_exec, script))

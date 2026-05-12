@@ -12,7 +12,7 @@ install:
 test_script:
   # NOTE: This needs Cygwin to be installed in C:\cygwin32
   - conan create . -pr:a appveyor/conan_profile
-  - conan cache save omniorb/* --file omniorb_conan_cache.tgz
+  - conan cache save omniorb/*:* --file omniorb_conan_cache.tgz
 
 artifacts:
   - path: omniorb_conan_cache.tgz

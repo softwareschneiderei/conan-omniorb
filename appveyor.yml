@@ -2,17 +2,16 @@ build: false
 
 environment:    
     matrix:
-        - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+        - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
           PYTHON: "C:\\Python311-x64"
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\Scripts;C:\Windows\system32;C:\Program Files\CMake\bin
   - pip.exe install conan
-  - conan profile detect
 
 test_script:
   # NOTE: This needs Cygwin to be installed in C:\cygwin32
-  - conan create .
+  - conan create . -pr:a appveyor/conan_profile
   - conan cache save omniorb/* --file omniorb_conan_cache.tgz
 
 artifacts:
